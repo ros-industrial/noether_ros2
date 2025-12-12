@@ -2,7 +2,7 @@
 // Copyright (c) 2018, Bosch Software Innovations GmbH.
 // All rights reserved.
 
-# pragma once
+#pragma once
 
 #include <memory>
 #include <QCursor>  // NOLINT cpplint cannot handle include order
@@ -20,7 +20,7 @@ namespace properties
 {
 class ColorProperty;
 }
-}
+}  // namespace rviz_common
 
 namespace noether_ros
 {
@@ -37,17 +37,17 @@ public:
 
   void deactivate() override;
 
-  int processMouseEvent(rviz_common::ViewportMouseEvent & event) override;
+  int processMouseEvent(rviz_common::ViewportMouseEvent& event) override;
 
 public Q_SLOTS:
   void updateLineColor();
 
 private:
   // void setStatusMessage();
-  void processLeftButton(const Ogre::Vector3 & pos);
+  void processLeftButton(const Ogre::Vector3& pos);
   void processRightButton();
 
-  rviz_common::properties::ColorProperty * color_property_;
+  rviz_common::properties::ColorProperty* color_property_;
 
   std::shared_ptr<rviz_rendering::Line> line_;
   Ogre::Vector3 start_;

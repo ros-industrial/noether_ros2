@@ -16,15 +16,16 @@
 
 namespace noether_ros
 {
-LocatedVectorTool::LocatedVectorTool()
-    : is_line_started_(false), length_(-1)
+LocatedVectorTool::LocatedVectorTool() : is_line_started_(false), length_(-1)
 {
   shortcut_key_ = 'n';
 
-  color_property_ = new rviz_common::properties::ColorProperty(
-      "Line color", Qt::darkYellow,
-      "The topic on which to publish points.",
-      getPropertyContainer(), SLOT(updateLineColor()), this);
+  color_property_ = new rviz_common::properties::ColorProperty("Line color",
+                                                               Qt::darkYellow,
+                                                               "The topic on which to publish points.",
+                                                               getPropertyContainer(),
+                                                               SLOT(updateLineColor()),
+                                                               this);
 }
 
 void LocatedVectorTool::onInitialize()
@@ -36,31 +37,29 @@ void LocatedVectorTool::onInitialize()
   hit_cursor_ = rviz_common::makeIconCursor("package://rviz_common/icons/crosshair.svg");
 }
 
-void LocatedVectorTool::activate()
-{
-  is_line_started_ = false;
-}
+void LocatedVectorTool::activate() { is_line_started_ = false; }
 
-void LocatedVectorTool::deactivate()
-{
-}
+void LocatedVectorTool::deactivate() {}
 
-int LocatedVectorTool::processMouseEvent(rviz_common::ViewportMouseEvent & event)
+int LocatedVectorTool::processMouseEvent(rviz_common::ViewportMouseEvent& event)
 {
   Ogre::Vector3 pos;
   bool success = context_->getViewPicker()->get3DPoint(event.panel, event.x, event.y, pos);
   setCursor(success ? hit_cursor_ : std_cursor_);
 
-  if (is_line_started_ && success) {
+  if (is_line_started_ && success)
+  {
     line_->setPoints(start_, pos);
     length_ = (start_ - pos).length();
   }
 
-  if (event.leftUp() && success) {
+  if (event.leftUp() && success)
+  {
     processLeftButton(pos);
     return Render;
   }
-  if (event.rightUp()) {
+  if (event.rightUp())
+  {
     processRightButton();
   }
 
@@ -73,13 +72,16 @@ void LocatedVectorTool::updateLineColor()
   line_->setColor(color);
 }
 
-void LocatedVectorTool::processLeftButton(const Ogre::Vector3 & pos)
+void LocatedVectorTool::processLeftButton(const Ogre::Vector3& pos)
 {
-  if (is_line_started_) {
+  if (is_line_started_)
+  {
     end_ = pos;
     line_->setPoints(start_, end_);
     is_line_started_ = false;
-  } else {
+  }
+  else
+  {
     start_ = pos;
     is_line_started_ = true;
   }
