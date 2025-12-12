@@ -13,6 +13,7 @@ find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(noether_tpp REQUIRED)
+find_package(noether_gui REQUIRED)
 find_package(pluginlib)
 find_package(rclcpp REQUIRED)
 find_package(rviz_common)
@@ -34,12 +35,20 @@ rosidl_generate_interfaces(
 rosidl_get_typesupport_target(interfaces_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
 
 # Library
-add_library(${PROJECT_NAME}_conversions SHARED src/conversions.cpp src/located_vector_generators.cpp)
+add_library(
+  ${PROJECT_NAME}_conversions SHARED src/conversions.cpp src/located_vector_generators.cpp
+                                     src/located_vector_generator_widgets.cpp
+)
 target_include_directories(
   ${PROJECT_NAME}_conversions PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
                                      "$<INSTALL_INTERFACE:include>"
 )
-target_link_libraries(${PROJECT_NAME}_conversions noether::noether_tpp ${interfaces_target})
+target_link_libraries(
+  ${PROJECT_NAME}_conversions
+  noether::noether_gui
+  noether::noether_tpp
+  ${interfaces_target}
+)
 ament_target_dependencies(${PROJECT_NAME}_conversions tf2_eigen rclcpp)
 
 # Tool path planning server
@@ -54,8 +63,11 @@ ament_target_dependencies(${PROJECT_NAME}_located_vector_tool rviz_common plugin
 
 # Plugins
 add_library(${PROJECT_NAME}_plugins SHARED src/plugins.cpp)
-target_link_libraries(${PROJECT_NAME}_plugins ${PROJECT_NAME}_conversions)
-ament_target_dependencies(${PROJECT_NAME}_plugins noether_tpp)
+target_link_libraries(${PROJECT_NAME}_plugins ${PROJECT_NAME}_conversions noether::noether_tpp)
+
+# GUI Plugins
+add_library(${PROJECT_NAME}_gui_plugins SHARED src/gui_plugins.cpp)
+target_link_libraries(${PROJECT_NAME}_gui_plugins ${PROJECT_NAME}_conversions noether::noether_gui)
 
 if(${ENABLE_TESTING})
   enable_testing()
@@ -67,7 +79,10 @@ install(DIRECTORY include/ DESTINATION include/)
 
 # Install the library
 install(
-  TARGETS ${PROJECT_NAME}_conversions ${PROJECT_NAME}_located_vector_tool ${PROJECT_NAME}_plugins
+  TARGETS ${PROJECT_NAME}_conversions
+          ${PROJECT_NAME}_located_vector_tool
+          ${PROJECT_NAME}_plugins
+          ${PROJECT_NAME}_gui_plugins
   EXPORT ${PROJECT_NAME}-targets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -81,6 +96,7 @@ install(TARGETS ${PROJECT_NAME}_tool_path_planning_server DESTINATION lib/${PROJ
 ament_export_dependencies(
   builtin_interfaces
   geometry_msgs
+  noether_gui
   noether_tpp
   pluginlib
   rosidl_default_runtime
