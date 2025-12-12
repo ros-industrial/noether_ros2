@@ -19,6 +19,7 @@ find_package(yaml-cpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(
   ${PROJECT_NAME}
+  "msg/LocatedVector.msg"
   "msg/ToolPath.msg"
   "msg/ToolPaths.msg"
   "srv/PlanToolPath.srv"
