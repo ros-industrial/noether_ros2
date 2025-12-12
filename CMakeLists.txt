@@ -52,6 +52,11 @@ add_library(${PROJECT_NAME}_located_vector_tool SHARED src/rviz_located_vector_t
 target_link_libraries(${PROJECT_NAME}_located_vector_tool ${interfaces_target})
 ament_target_dependencies(${PROJECT_NAME}_located_vector_tool rviz_common pluginlib)
 
+# Plugins
+add_library(${PROJECT_NAME}_plugins SHARED src/plugins.cpp)
+target_link_libraries(${PROJECT_NAME}_plugins ${PROJECT_NAME}_conversions)
+ament_target_dependencies(${PROJECT_NAME}_plugins noether_tpp)
+
 if(${ENABLE_TESTING})
   enable_testing()
   add_subdirectory(test)
@@ -62,7 +67,7 @@ install(DIRECTORY include/ DESTINATION include/)
 
 # Install the library
 install(
-  TARGETS ${PROJECT_NAME}_conversions ${PROJECT_NAME}_located_vector_tool
+  TARGETS ${PROJECT_NAME}_conversions ${PROJECT_NAME}_located_vector_tool ${PROJECT_NAME}_plugins
   EXPORT ${PROJECT_NAME}-targets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -82,5 +87,6 @@ ament_export_dependencies(
   rviz_common
   tf2_eigen
 )
+ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/hooks/noether_plugin_libs.dsv.in")
 pluginlib_export_plugin_description_file(rviz_common plugin_description.xml)
 ament_package()
