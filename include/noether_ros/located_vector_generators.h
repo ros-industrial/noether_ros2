@@ -4,6 +4,7 @@
 
 #include <noether_tpp/macros.h>
 #include <noether_tpp/tool_path_planners/raster/raster_planner.h>
+#include <optional>
 #include <rclcpp/node.hpp>
 #include <rclcpp/subscription.hpp>
 #include <tf2_ros/buffer.hpp>
@@ -13,14 +14,17 @@ FWD_DECLARE_YAML_STRUCTS()
 
 namespace noether_ros
 {
-class LocatedVectorDirectionGenerator : public noether::DirectionGenerator
+class LocatedVectorSubscriber
 {
 public:
-  LocatedVectorDirectionGenerator();
+  LocatedVectorSubscriber();
+  virtual ~LocatedVectorSubscriber() = default;
 
-  Eigen::Vector3d generate(const pcl::PolygonMesh& mesh) const override;
+  Eigen::Isometry3d lookupTransform(const std::string& source, const std::string& target) const;
+  std::optional<noether_ros::msg::LocatedVector> getMessage() const;
 
 protected:
+  mutable std::mutex mutex_;
   noether_ros::msg::LocatedVector::ConstSharedPtr msg_;
 
   rclcpp::Node::SharedPtr node_;
@@ -29,20 +33,22 @@ protected:
   std::shared_ptr<tf2_ros::TransformListener> listener_;
 };
 
+class LocatedVectorDirectionGenerator : public noether::DirectionGenerator
+{
+public:
+  LocatedVectorDirectionGenerator() = default;
+
+  Eigen::Vector3d generate(const pcl::PolygonMesh& mesh) const override;
+};
+
+using LocatedVectorDirectionGeneratorWidget = noether::BaseWidget;
+
 class LocatedVectorOriginGenerator : public noether::OriginGenerator
 {
 public:
-  LocatedVectorOriginGenerator();
+  LocatedVectorOriginGenerator() = default;
 
   Eigen::Vector3d generate(const pcl::PolygonMesh& mesh) const override;
-
-protected:
-  noether_ros::msg::LocatedVector::ConstSharedPtr msg_;
-
-  rclcpp::Node::SharedPtr node_;
-  rclcpp::Subscription<noether_ros::msg::LocatedVector>::SharedPtr sub_;
-  tf2_ros::Buffer::SharedPtr buffer_;
-  std::shared_ptr<tf2_ros::TransformListener> listener_;
 };
 
 }  // namespace noether_ros
