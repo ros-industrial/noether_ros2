@@ -4,9 +4,12 @@
 
 #pragma once
 
+#include <noether_ros/msg/located_vector.hpp>
+
 #include <memory>
 #include <QCursor>  // NOLINT cpplint cannot handle include order
 #include <OgreVector.h>
+#include <rclcpp/publisher.hpp>
 #include <rviz_common/tool.hpp>
 
 namespace rviz_rendering
@@ -46,6 +49,8 @@ private:
   // void setStatusMessage();
   void processLeftButton(const Ogre::Vector3& pos);
   void processRightButton();
+
+  rclcpp::Publisher<noether_ros::msg::LocatedVector>::SharedPtr publisher_;
 
   rviz_common::properties::ColorProperty* color_property_;
 

@@ -18,7 +18,7 @@ namespace noether_ros
 {
 LocatedVectorTool::LocatedVectorTool() : is_line_started_(false), length_(-1)
 {
-  shortcut_key_ = 'n';
+  shortcut_key_ = 'l';
 
   color_property_ = new rviz_common::properties::ColorProperty("Line color",
                                                                Qt::darkYellow,
@@ -30,6 +30,14 @@ LocatedVectorTool::LocatedVectorTool() : is_line_started_(false), length_(-1)
 
 void LocatedVectorTool::onInitialize()
 {
+  // Create the publisher
+  rclcpp::Node::SharedPtr node = context_->getRosNodeAbstraction().lock()->get_raw_node();
+  rclcpp::QoS qos(1);
+  qos.transient_local();
+  qos.reliable();
+  publisher_ = node->create_publisher<noether_ros::msg::LocatedVector>("located_vector", qos);
+
+  // Create the line display
   line_ = std::make_shared<rviz_rendering::Line>(context_->getSceneManager());
   updateLineColor();
 
@@ -79,6 +87,18 @@ void LocatedVectorTool::processLeftButton(const Ogre::Vector3& pos)
     end_ = pos;
     line_->setPoints(start_, end_);
     is_line_started_ = false;
+
+    // Publish a located vector message
+    msg::LocatedVector msg;
+    msg.source.header.frame_id = context_->getFixedFrame().toStdString();
+    msg.source.point.x = start_.x;
+    msg.source.point.y = start_.y;
+    msg.source.point.z = start_.z;
+    msg.target.header.frame_id = context_->getFixedFrame().toStdString();
+    msg.target.point.x = end_.x;
+    msg.target.point.y = end_.y;
+    msg.target.point.z = end_.z;
+    publisher_->publish(msg);
   }
   else
   {
