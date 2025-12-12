@@ -34,13 +34,13 @@ rosidl_generate_interfaces(
 rosidl_get_typesupport_target(interfaces_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
 
 # Library
-add_library(${PROJECT_NAME}_conversions SHARED src/conversions.cpp)
+add_library(${PROJECT_NAME}_conversions SHARED src/conversions.cpp src/located_vector_generators.cpp)
 target_include_directories(
   ${PROJECT_NAME}_conversions PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
                                      "$<INSTALL_INTERFACE:include>"
 )
 target_link_libraries(${PROJECT_NAME}_conversions noether::noether_tpp ${interfaces_target})
-ament_target_dependencies(${PROJECT_NAME}_conversions tf2_eigen)
+ament_target_dependencies(${PROJECT_NAME}_conversions tf2_eigen rclcpp)
 
 # Tool path planning server
 add_executable(${PROJECT_NAME}_tool_path_planning_server src/tool_path_planning_server.cpp)
