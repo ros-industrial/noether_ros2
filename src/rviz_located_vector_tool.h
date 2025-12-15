@@ -11,22 +11,28 @@
 #include <OgreVector.h>
 #include <rclcpp/publisher.hpp>
 #include <rviz_common/tool.hpp>
-
-namespace rviz_rendering
-{
-class Line;
-}
+#include <rviz_rendering/objects/line.hpp>
 
 namespace rviz_common
 {
 namespace properties
 {
+class BoolProperty;
 class ColorProperty;
-}
+}  // namespace properties
 }  // namespace rviz_common
 
 namespace noether_ros
 {
+class Line : public rviz_rendering::Line
+{
+public:
+  using rviz_rendering::Line::Line;
+
+  Ogre::ManualObject* getManualObject() const;
+  Ogre::MaterialPtr getManualObjectMaterial() const;
+};
+
 class LocatedVectorTool : public rviz_common::Tool
 {
   Q_OBJECT
@@ -41,6 +47,7 @@ public:
 
 public Q_SLOTS:
   void updateLineColor();
+  void updateRenderAsOverlay();
 
 private:
   void processLeftButton(const Ogre::Vector3& pos);
@@ -49,8 +56,9 @@ private:
   rclcpp::Publisher<noether_ros::msg::LocatedVector>::SharedPtr publisher_;
 
   rviz_common::properties::ColorProperty* color_property_;
+  rviz_common::properties::BoolProperty* render_as_overlay_property_;
 
-  std::shared_ptr<rviz_rendering::Line> line_;
+  std::shared_ptr<Line> line_;
   std::shared_ptr<Ogre::Vector3> start_;
   std::shared_ptr<Ogre::Vector3> end_;
 

@@ -5,17 +5,24 @@
 #include "rviz_located_vector_tool.h"
 
 #include <QString>  // NOLINT: cpplint is unable to handle the include order here
+#include <OgreManualObject.h>
+#include <OgreRenderQueue.h>
 #include <OgreSceneNode.h>
 #include <rviz_common/display_context.hpp>
 #include <rviz_common/load_resource.hpp>
 #include <rviz_common/viewport_mouse_event.hpp>
 #include <rviz_common/interaction/view_picker_iface.hpp>
+#include <rviz_common/properties/bool_property.hpp>
 #include <rviz_common/properties/color_property.hpp>
 #include <rviz_common/properties/parse_color.hpp>
 #include <rviz_rendering/objects/line.hpp>
 
 namespace noether_ros
 {
+Ogre::ManualObject* Line::getManualObject() const { return manual_object_; }
+
+Ogre::MaterialPtr Line::getManualObjectMaterial() const { return manual_object_material_; }
+
 LocatedVectorTool::LocatedVectorTool() : rviz_common::Tool(), start_(nullptr), end_(nullptr)
 {
   shortcut_key_ = 'l';
@@ -26,6 +33,14 @@ LocatedVectorTool::LocatedVectorTool() : rviz_common::Tool(), start_(nullptr), e
                                                                getPropertyContainer(),
                                                                SLOT(updateLineColor()),
                                                                this);
+
+  render_as_overlay_property_ = new rviz_common::properties::BoolProperty("Render as overlay",
+                                                                          false,
+                                                                          "Render the drawn lines on top of all other "
+                                                                          "geometry",
+                                                                          getPropertyContainer(),
+                                                                          SLOT(updateRenderAsOverlay()),
+                                                                          this);
 }
 
 void LocatedVectorTool::onInitialize()
@@ -38,8 +53,9 @@ void LocatedVectorTool::onInitialize()
   publisher_ = node->create_publisher<noether_ros::msg::LocatedVector>("located_vector", qos);
 
   // Create the line display
-  line_ = std::make_shared<rviz_rendering::Line>(context_->getSceneManager());
+  line_ = std::make_shared<Line>(context_->getSceneManager());
   updateLineColor();
+  updateRenderAsOverlay();
 
   std_cursor_ = rviz_common::getDefaultCursor();
   hit_cursor_ = rviz_common::makeIconCursor("package://rviz_common/icons/crosshair.svg");
@@ -76,6 +92,17 @@ void LocatedVectorTool::updateLineColor()
 {
   Ogre::ColourValue color = rviz_common::properties::qtToOgre(color_property_->getColor());
   line_->setColor(color);
+}
+
+void LocatedVectorTool::updateRenderAsOverlay()
+{
+  const bool render_as_overlay = render_as_overlay_property_->getBool();
+  const Ogre::RenderQueueGroupID render_id =
+      render_as_overlay ? Ogre::RenderQueueGroupID::RENDER_QUEUE_OVERLAY : Ogre::RenderQueueGroupID::RENDER_QUEUE_MAIN;
+
+  line_->getManualObjectMaterial()->setDepthCheckEnabled(!render_as_overlay);
+  line_->getManualObjectMaterial()->setDepthWriteEnabled(!render_as_overlay);
+  line_->getManualObject()->setRenderQueueGroup(render_id);
 }
 
 void LocatedVectorTool::processLeftButton(const Ogre::Vector3& pos)
