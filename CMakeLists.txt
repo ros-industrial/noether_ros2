@@ -57,7 +57,7 @@ target_link_libraries(${PROJECT_NAME}_tool_path_planning_server ${PROJECT_NAME}_
 ament_target_dependencies(${PROJECT_NAME}_tool_path_planning_server rclcpp)
 
 # Located vector Rviz tool
-add_library(${PROJECT_NAME}_located_vector_tool SHARED src/rviz_located_vector_tool.h src/rviz_located_vector_tool.cpp ${moc})
+add_library(${PROJECT_NAME}_located_vector_tool SHARED src/located_vector_rviz_tool.h src/located_vector_rviz_tool.cpp)
 target_link_libraries(${PROJECT_NAME}_located_vector_tool ${interfaces_target})
 ament_target_dependencies(${PROJECT_NAME}_located_vector_tool rviz_common pluginlib)
 

@@ -2,7 +2,7 @@
 // Copyright (c) 2018, Bosch Software Innovations GmbH.
 // All rights reserved.
 
-#include "rviz_located_vector_tool.h"
+#include "located_vector_rviz_tool.h"
 
 #include <QString>  // NOLINT: cpplint is unable to handle the include order here
 #include <OgreManualObject.h>
