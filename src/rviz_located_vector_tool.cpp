@@ -14,8 +14,18 @@
 #include <rviz_common/interaction/view_picker_iface.hpp>
 #include <rviz_common/properties/bool_property.hpp>
 #include <rviz_common/properties/color_property.hpp>
+#include <rviz_common/properties/string_property.hpp>
 #include <rviz_common/properties/parse_color.hpp>
 #include <rviz_rendering/objects/line.hpp>
+
+#if __has_include(<rclcpp/version.h>)
+#include <rclcpp/version.h>
+
+#if (RCLCPP_VERSION_MAJOR >= 28)
+#define QOS_REQUIRED_IN_SERVICE
+#endif
+
+#endif
 
 namespace noether_ros
 {
@@ -41,17 +51,19 @@ LocatedVectorTool::LocatedVectorTool() : rviz_common::Tool(), start_(nullptr), e
                                                                           getPropertyContainer(),
                                                                           SLOT(updateRenderAsOverlay()),
                                                                           this);
+
+  service_name_property_ = new rviz_common::properties::StringProperty(
+      "Service name", "get_located_vector", "Desc", getPropertyContainer(), SLOT(updateServiceName()), this);
+}
+
+LocatedVectorTool::~LocatedVectorTool()
+{
+  executor_.cancel();
+  executor_thread_.join();
 }
 
 void LocatedVectorTool::onInitialize()
 {
-  // Create the publisher
-  rclcpp::Node::SharedPtr node = context_->getRosNodeAbstraction().lock()->get_raw_node();
-  rclcpp::QoS qos(1);
-  qos.transient_local();
-  qos.reliable();
-  publisher_ = node->create_publisher<noether_ros::msg::LocatedVector>("located_vector", qos);
-
   // Create the line display
   line_ = std::make_shared<Line>(context_->getSceneManager());
   updateLineColor();
@@ -59,6 +71,40 @@ void LocatedVectorTool::onInitialize()
 
   std_cursor_ = rviz_common::getDefaultCursor();
   hit_cursor_ = rviz_common::makeIconCursor("package://rviz_common/icons/crosshair.svg");
+
+  updateServiceName();
+}
+
+void LocatedVectorTool::updateServiceName()
+{
+  const std::string service_name = service_name_property_->getStdString();
+
+  rclcpp::Node::SharedPtr node = context_->getRosNodeAbstraction().lock()->get_raw_node();
+
+  executor_.cancel();
+  if (executor_thread_.joinable())
+    executor_thread_.join();
+
+  executor_callback_group_ = node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  executor_.add_callback_group(executor_callback_group_, node->get_node_base_interface());
+
+#ifdef QOS_REQUIRED_IN_SERVICE
+  rclcpp::QoS qos(rclcpp::QoSInitialization(RMW_QOS_POLICY_HISTORY_SYSTEM_DEFAULT, 1),
+                  rmw_qos_profile_services_default);
+  server_ = node->create_service<srv::GetLocatedVector>(
+      service_name,
+      std::bind(&LocatedVectorTool::callback, this, std::placeholders::_1, std::placeholders::_2),
+      qos,
+      executor_callback_group_);
+#else
+  server_ = node->create_service<srv::GetLocatedVector>(
+      service_name,
+      std::bind(&LocatedVectorTool::callback, this, std::placeholders::_1, std::placeholders::_2),
+      rmw_qos_profile_services_default,
+      executor_callback_group_);
+#endif
+
+  executor_thread_ = std::thread([&]() { executor_.spin(); });
 }
 
 void LocatedVectorTool::activate() {}
@@ -119,18 +165,6 @@ void LocatedVectorTool::processLeftButton(const Ogre::Vector3& pos)
     {
       // Only the start point is defined -> set the current position as the end
       end_ = std::make_shared<Ogre::Vector3>(pos);
-
-      // Publish a located vector message
-      msg::LocatedVector msg;
-      msg.source.header.frame_id = context_->getFixedFrame().toStdString();
-      msg.source.point.x = start_->x;
-      msg.source.point.y = start_->y;
-      msg.source.point.z = start_->z;
-      msg.target.header.frame_id = context_->getFixedFrame().toStdString();
-      msg.target.point.x = end_->x;
-      msg.target.point.y = end_->y;
-      msg.target.point.z = end_->z;
-      publisher_->publish(msg);
     }
   }
   else
@@ -144,6 +178,36 @@ void LocatedVectorTool::processRightButton()
   start_.reset();
   end_.reset();
   line_->setVisible(false);
+}
+
+void LocatedVectorTool::callback(srv::GetLocatedVector::Request::ConstSharedPtr req,
+                                 srv::GetLocatedVector::Response::SharedPtr res) const
+{
+  if (!start_)
+  {
+    res->success = false;
+    res->message = "Start point has not been set";
+    return;
+  }
+
+  if (!end_)
+  {
+    res->success = false;
+    res->message = "End point has not been set";
+    return;
+  }
+
+  res->source.header.frame_id = context_->getFixedFrame().toStdString();
+  res->source.point.x = start_->x;
+  res->source.point.y = start_->y;
+  res->source.point.z = start_->z;
+
+  res->target.header.frame_id = context_->getFixedFrame().toStdString();
+  res->target.point.x = end_->x;
+  res->target.point.y = end_->y;
+  res->target.point.z = end_->z;
+
+  res->success = true;
 }
 
 }  // namespace noether_ros

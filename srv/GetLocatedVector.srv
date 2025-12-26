@@ -1,2 +1,5 @@
+---
+bool success
+string message
 geometry_msgs/PointStamped source
 geometry_msgs/PointStamped target

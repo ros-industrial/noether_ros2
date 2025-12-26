@@ -8,24 +8,16 @@ using namespace std::chrono_literals;
 
 namespace noether_ros
 {
-LocatedVectorSubscriber::LocatedVectorSubscriber()
+LocatedVectorClient::LocatedVectorClient()
 {
   // Initialize RCLPP if not already
   if (!rclcpp::ok())
     rclcpp::init(0, nullptr);
 
-  node_ = std::make_shared<rclcpp::Node>("located_vector_direction_generator");
+  node_ = std::make_shared<rclcpp::Node>("located_vector_node");
 
-  // Create the subscriber
-  rclcpp::QoS qos(1);
-  qos.reliable();
-  qos.transient_local();
-
-  auto cb = [this](const noether_ros::msg::LocatedVector::ConstSharedPtr& msg) {
-    std::lock_guard lock{ mutex_ };
-    msg_ = msg;
-  };
-  sub_ = node_->create_subscription<noether_ros::msg::LocatedVector>("located_vector", qos, cb);
+  // Create the client
+  client_ = node_->create_client<srv::GetLocatedVector>("get_located_vector");
 
   // Create the transform listener
   buffer_ =
@@ -33,50 +25,60 @@ LocatedVectorSubscriber::LocatedVectorSubscriber()
   listener_ = std::make_shared<tf2_ros::TransformListener>(*buffer_, node_);
 }
 
-Eigen::Isometry3d LocatedVectorSubscriber::lookupTransform(const std::string& source, const std::string& target) const
+Eigen::Isometry3d LocatedVectorClient::lookupTransform(const std::string& source, const std::string& target) const
 {
   rclcpp::spin_some(node_);
   return tf2::transformToEigen(
       buffer_->lookupTransform(source, target, rclcpp::Time(0), rclcpp::Duration::from_seconds(1.0)));
 }
 
-std::optional<noether_ros::msg::LocatedVector> LocatedVectorSubscriber::getMessage() const
+LocatedVector LocatedVectorClient::getLocatedVector() const
 {
-  auto start = std::chrono::steady_clock::now();
-  while (std::chrono::steady_clock::now() - start < 3s)
+  // Check if the service is ready
+  rclcpp::spin_some(node_);
+  using namespace std::chrono_literals;
+  if (!client_->wait_for_service(1s))
+    throw std::runtime_error("Get located vector service is not available");
+
+  // Call the ROI selection service
+  auto request = std::make_shared<srv::GetLocatedVector::Request>();
+  auto future = client_->async_send_request(request);
+
+  switch (rclcpp::spin_until_future_complete(node_, future, std::chrono::seconds(3)))
   {
-    rclcpp::spin_some(node_);
-    std::lock_guard lock{ mutex_ };
-    if (msg_)
-      return *msg_;
-    std::this_thread::sleep_for(100ms);
+    case rclcpp::FutureReturnCode::SUCCESS:
+      break;
+    case rclcpp::FutureReturnCode::TIMEOUT:
+      throw std::runtime_error("Service call to '" + std::string(client_->get_service_name()) + "' timed out");
+    default:
+      throw std::runtime_error("Service call to '" + std::string(client_->get_service_name()) + "' failed");
   }
-  return {};
+
+  srv::GetLocatedVector::Response::ConstSharedPtr response = future.get();
+  if (response->success)
+    return std::make_pair(response->source, response->target);
+
+  throw std::runtime_error(response->message);
 }
 
 Eigen::Vector3d LocatedVectorDirectionGenerator::generate(const pcl::PolygonMesh& mesh) const
 {
-  LocatedVectorSubscriber sub_;
-  const std::optional<msg::LocatedVector> msg = sub_.getMessage();
-
-  if (!msg)
-    throw std::runtime_error("No located vector message received yet");
+  LocatedVectorClient client;
+  const LocatedVector lv = client.getLocatedVector();
 
   // Transform the source point into the mesh frame
   Eigen::Vector3d source;
   {
-    tf2::fromMsg(msg.value().source.point, source);
-    const Eigen::Isometry3d mesh_to_source =
-        sub_.lookupTransform(mesh.header.frame_id, msg.value().source.header.frame_id);
+    tf2::fromMsg(lv.first.point, source);
+    const Eigen::Isometry3d mesh_to_source = client.lookupTransform(mesh.header.frame_id, lv.first.header.frame_id);
     source = mesh_to_source * source;
   }
 
   // Transform the target point into the mesh frame
   Eigen::Vector3d target;
   {
-    tf2::fromMsg(msg.value().target.point, target);
-    const Eigen::Isometry3d mesh_to_target =
-        sub_.lookupTransform(mesh.header.frame_id, msg.value().target.header.frame_id);
+    tf2::fromMsg(lv.second.point, target);
+    const Eigen::Isometry3d mesh_to_target = client.lookupTransform(mesh.header.frame_id, lv.second.header.frame_id);
     target = mesh_to_target * target;
   }
 
@@ -85,18 +87,15 @@ Eigen::Vector3d LocatedVectorDirectionGenerator::generate(const pcl::PolygonMesh
 
 Eigen::Vector3d LocatedVectorOriginGenerator::generate(const pcl::PolygonMesh& mesh) const
 {
-  LocatedVectorSubscriber sub_;
-  std::optional<msg::LocatedVector> msg = sub_.getMessage();
-
-  if (!msg)
-    throw std::runtime_error("No located vector message received yet");
+  LocatedVectorClient client;
+  LocatedVector lv = client.getLocatedVector();
 
   // Convert to Eigen
   Eigen::Vector3d source;
-  tf2::fromMsg(msg.value().source.point, source);
+  tf2::fromMsg(lv.first.point, source);
 
   // Look up the transform from the mesh frame to the source frame
-  Eigen::Isometry3d mesh_to_source = sub_.lookupTransform(mesh.header.frame_id, msg.value().source.header.frame_id);
+  Eigen::Isometry3d mesh_to_source = client.lookupTransform(mesh.header.frame_id, lv.first.header.frame_id);
 
   // Transform the source point into the mesh frame
   return mesh_to_source * source;

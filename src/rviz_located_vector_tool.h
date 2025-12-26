@@ -4,12 +4,14 @@
 
 #pragma once
 
-#include <noether_ros/msg/located_vector.hpp>
+#include <noether_ros/srv/get_located_vector.hpp>
 
 #include <memory>
 #include <QCursor>  // NOLINT cpplint cannot handle include order
 #include <OgreVector.h>
-#include <rclcpp/publisher.hpp>
+#include <rclcpp/executors/single_threaded_executor.hpp>
+#include <rclcpp/callback_group.hpp>
+#include <rclcpp/service.hpp>
 #include <rviz_common/tool.hpp>
 #include <rviz_rendering/objects/line.hpp>
 
@@ -19,6 +21,7 @@ namespace properties
 {
 class BoolProperty;
 class ColorProperty;
+class StringProperty;
 }  // namespace properties
 }  // namespace rviz_common
 
@@ -39,6 +42,7 @@ class LocatedVectorTool : public rviz_common::Tool
 
 public:
   LocatedVectorTool();
+  virtual ~LocatedVectorTool();
 
   void onInitialize() override;
   void activate() override;
@@ -48,15 +52,22 @@ public:
 public Q_SLOTS:
   void updateLineColor();
   void updateRenderAsOverlay();
+  void updateServiceName();
 
 private:
   void processLeftButton(const Ogre::Vector3& pos);
   void processRightButton();
-
-  rclcpp::Publisher<noether_ros::msg::LocatedVector>::SharedPtr publisher_;
+  void callback(srv::GetLocatedVector::Request::ConstSharedPtr req,
+                srv::GetLocatedVector::Response::SharedPtr res) const;
 
   rviz_common::properties::ColorProperty* color_property_;
   rviz_common::properties::BoolProperty* render_as_overlay_property_;
+  rviz_common::properties::StringProperty* service_name_property_;
+
+  rclcpp::Service<srv::GetLocatedVector>::SharedPtr server_;
+  std::thread executor_thread_;
+  rclcpp::executors::SingleThreadedExecutor executor_;
+  rclcpp::CallbackGroup::SharedPtr executor_callback_group_;
 
   std::shared_ptr<Line> line_;
   std::shared_ptr<Ogre::Vector3> start_;

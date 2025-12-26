@@ -1,12 +1,11 @@
 #pragma once
 
-#include <noether_ros/msg/located_vector.hpp>
+#include <noether_ros/srv/get_located_vector.hpp>
 
 #include <noether_tpp/macros.h>
 #include <noether_tpp/tool_path_planners/raster/raster_planner.h>
-#include <optional>
 #include <rclcpp/node.hpp>
-#include <rclcpp/subscription.hpp>
+#include <rclcpp/service.hpp>
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_listener.hpp>
 
@@ -14,21 +13,20 @@ FWD_DECLARE_YAML_STRUCTS()
 
 namespace noether_ros
 {
-class LocatedVectorSubscriber
+using LocatedVector = std::pair<geometry_msgs::msg::PointStamped, geometry_msgs::msg::PointStamped>;
+
+class LocatedVectorClient
 {
 public:
-  LocatedVectorSubscriber();
-  virtual ~LocatedVectorSubscriber() = default;
+  LocatedVectorClient();
+  virtual ~LocatedVectorClient() = default;
 
   Eigen::Isometry3d lookupTransform(const std::string& source, const std::string& target) const;
-  std::optional<noether_ros::msg::LocatedVector> getMessage() const;
+  LocatedVector getLocatedVector() const;
 
 protected:
-  mutable std::mutex mutex_;
-  noether_ros::msg::LocatedVector::ConstSharedPtr msg_;
-
   rclcpp::Node::SharedPtr node_;
-  rclcpp::Subscription<noether_ros::msg::LocatedVector>::SharedPtr sub_;
+  rclcpp::Client<srv::GetLocatedVector>::SharedPtr client_;
   tf2_ros::Buffer::SharedPtr buffer_;
   std::shared_ptr<tf2_ros::TransformListener> listener_;
 };
