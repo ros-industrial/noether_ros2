@@ -35,18 +35,14 @@ public:
   LocatedVectorTool();
 
   void onInitialize() override;
-
   void activate() override;
-
   void deactivate() override;
-
   int processMouseEvent(rviz_common::ViewportMouseEvent& event) override;
 
 public Q_SLOTS:
   void updateLineColor();
 
 private:
-  // void setStatusMessage();
   void processLeftButton(const Ogre::Vector3& pos);
   void processRightButton();
 
@@ -55,10 +51,8 @@ private:
   rviz_common::properties::ColorProperty* color_property_;
 
   std::shared_ptr<rviz_rendering::Line> line_;
-  Ogre::Vector3 start_;
-  Ogre::Vector3 end_;
-  bool is_line_started_;
-  float length_;
+  std::shared_ptr<Ogre::Vector3> start_;
+  std::shared_ptr<Ogre::Vector3> end_;
 
   QCursor std_cursor_;
   QCursor hit_cursor_;

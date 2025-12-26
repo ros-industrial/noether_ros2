@@ -16,7 +16,7 @@
 
 namespace noether_ros
 {
-LocatedVectorTool::LocatedVectorTool() : is_line_started_(false), length_(-1)
+LocatedVectorTool::LocatedVectorTool() : rviz_common::Tool(), start_(nullptr), end_(nullptr)
 {
   shortcut_key_ = 'l';
 
@@ -45,7 +45,7 @@ void LocatedVectorTool::onInitialize()
   hit_cursor_ = rviz_common::makeIconCursor("package://rviz_common/icons/crosshair.svg");
 }
 
-void LocatedVectorTool::activate() { is_line_started_ = false; }
+void LocatedVectorTool::activate() {}
 
 void LocatedVectorTool::deactivate() {}
 
@@ -55,11 +55,9 @@ int LocatedVectorTool::processMouseEvent(rviz_common::ViewportMouseEvent& event)
   bool success = context_->getViewPicker()->get3DPoint(event.panel, event.x, event.y, pos);
   setCursor(success ? hit_cursor_ : std_cursor_);
 
-  if (is_line_started_ && success)
-  {
-    line_->setPoints(start_, pos);
-    length_ = (start_ - pos).length();
-  }
+  // Update the line display
+  if (success && start_ && !end_)
+    line_->setPoints(*start_, pos);
 
   if (event.leftUp() && success)
   {
@@ -82,34 +80,42 @@ void LocatedVectorTool::updateLineColor()
 
 void LocatedVectorTool::processLeftButton(const Ogre::Vector3& pos)
 {
-  if (is_line_started_)
+  if (start_)
   {
-    end_ = pos;
-    line_->setPoints(start_, end_);
-    is_line_started_ = false;
+    if (end_)
+    {
+      // Both the start and end points are defined -> reset the start to the current position
+      start_ = std::make_shared<Ogre::Vector3>(pos);
+      end_.reset();
+    }
+    else
+    {
+      // Only the start point is defined -> set the current position as the end
+      end_ = std::make_shared<Ogre::Vector3>(pos);
 
-    // Publish a located vector message
-    msg::LocatedVector msg;
-    msg.source.header.frame_id = context_->getFixedFrame().toStdString();
-    msg.source.point.x = start_.x;
-    msg.source.point.y = start_.y;
-    msg.source.point.z = start_.z;
-    msg.target.header.frame_id = context_->getFixedFrame().toStdString();
-    msg.target.point.x = end_.x;
-    msg.target.point.y = end_.y;
-    msg.target.point.z = end_.z;
-    publisher_->publish(msg);
+      // Publish a located vector message
+      msg::LocatedVector msg;
+      msg.source.header.frame_id = context_->getFixedFrame().toStdString();
+      msg.source.point.x = start_->x;
+      msg.source.point.y = start_->y;
+      msg.source.point.z = start_->z;
+      msg.target.header.frame_id = context_->getFixedFrame().toStdString();
+      msg.target.point.x = end_->x;
+      msg.target.point.y = end_->y;
+      msg.target.point.z = end_->z;
+      publisher_->publish(msg);
+    }
   }
   else
   {
-    start_ = pos;
-    is_line_started_ = true;
+    start_ = std::make_shared<Ogre::Vector3>(pos);
   }
 }
 
 void LocatedVectorTool::processRightButton()
 {
-  is_line_started_ = false;
+  start_.reset();
+  end_.reset();
   line_->setVisible(false);
 }
 
