@@ -6,12 +6,17 @@ if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
 endif()
 
-# find dependencies
+set(CMAKE_AUTOMOC ON)
+
+# Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(noether_tpp REQUIRED)
+find_package(noether_gui REQUIRED)
+find_package(pluginlib)
 find_package(rclcpp REQUIRED)
+find_package(rviz_common)
 find_package(tf2_eigen REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
@@ -21,6 +26,7 @@ rosidl_generate_interfaces(
   ${PROJECT_NAME}
   "msg/ToolPath.msg"
   "msg/ToolPaths.msg"
+  "srv/GetLocatedVector.srv"
   "srv/PlanToolPath.srv"
   DEPENDENCIES
   builtin_interfaces
@@ -29,18 +35,42 @@ rosidl_generate_interfaces(
 rosidl_get_typesupport_target(interfaces_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
 
 # Library
-add_library(${PROJECT_NAME}_conversions SHARED src/conversions.cpp)
-target_include_directories(
-  ${PROJECT_NAME}_conversions PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-                                     "$<INSTALL_INTERFACE:include>"
+add_library(
+  ${PROJECT_NAME}_lib SHARED src/conversions.cpp src/located_vector_generators.cpp
+                             src/located_vector_generator_widgets.cpp
 )
-target_link_libraries(${PROJECT_NAME}_conversions noether::noether_tpp ${interfaces_target})
-ament_target_dependencies(${PROJECT_NAME}_conversions tf2_eigen)
+target_include_directories(
+  ${PROJECT_NAME}_lib PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
+)
+target_link_libraries(
+  ${PROJECT_NAME}_lib
+  PUBLIC noether::noether_gui
+         noether::noether_tpp
+         tf2_eigen::tf2_eigen
+         rclcpp::rclcpp
+         ${interfaces_target}
+)
 
 # Tool path planning server
 add_executable(${PROJECT_NAME}_tool_path_planning_server src/tool_path_planning_server.cpp)
-target_link_libraries(${PROJECT_NAME}_tool_path_planning_server ${PROJECT_NAME}_conversions yaml-cpp)
-ament_target_dependencies(${PROJECT_NAME}_tool_path_planning_server rclcpp)
+target_link_libraries(${PROJECT_NAME}_tool_path_planning_server PUBLIC ${PROJECT_NAME}_lib rclcpp::rclcpp yaml-cpp)
+
+# Located vector Rviz tool
+add_library(${PROJECT_NAME}_located_vector_tool SHARED src/located_vector_rviz_tool.h src/located_vector_rviz_tool.cpp)
+target_link_libraries(
+  ${PROJECT_NAME}_located_vector_tool
+  pluginlib::pluginlib
+  rviz_common::rviz_common
+  ${interfaces_target}
+)
+
+# Plugins
+add_library(${PROJECT_NAME}_plugins SHARED src/plugins.cpp)
+target_link_libraries(${PROJECT_NAME}_plugins ${PROJECT_NAME}_lib noether::noether_tpp)
+
+# GUI Plugins
+add_library(${PROJECT_NAME}_gui_plugins SHARED src/gui_plugins.cpp)
+target_link_libraries(${PROJECT_NAME}_gui_plugins ${PROJECT_NAME}_lib noether::noether_gui)
 
 if(${ENABLE_TESTING})
   enable_testing()
@@ -52,7 +82,10 @@ install(DIRECTORY include/ DESTINATION include/)
 
 # Install the library
 install(
-  TARGETS ${PROJECT_NAME}_conversions
+  TARGETS ${PROJECT_NAME}_lib
+          ${PROJECT_NAME}_located_vector_tool
+          ${PROJECT_NAME}_plugins
+          ${PROJECT_NAME}_gui_plugins
   EXPORT ${PROJECT_NAME}-targets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -66,8 +99,13 @@ install(TARGETS ${PROJECT_NAME}_tool_path_planning_server DESTINATION lib/${PROJ
 ament_export_dependencies(
   builtin_interfaces
   geometry_msgs
+  noether_gui
   noether_tpp
+  pluginlib
   rosidl_default_runtime
+  rviz_common
   tf2_eigen
 )
+ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/hooks/noether_plugin_libs.dsv.in")
+pluginlib_export_plugin_description_file(rviz_common plugin_description.xml)
 ament_package()

@@ -1,0 +1,7 @@
+<library path="noether_ros_located_vector_tool">
+  <class name="noether_ros/LocatedVector" type="noether_ros::LocatedVectorTool" base_class_type="rviz_common::Tool">
+    <description>
+      Draws a 2-point line on geometry in the 3D window and provides access to the resulting line (or "located vector") via a ROS 2 service
+    </description>
+  </class>
+</library>
