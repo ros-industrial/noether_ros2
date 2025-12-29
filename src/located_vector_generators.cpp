@@ -9,7 +9,8 @@
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_listener.hpp>
 
-using namespace std::chrono_literals;
+static const char* SERVICE_NAME_KEY = "service_name";
+static const char* DEFAULT_SERVICE_NAME = "get_located_vector";
 
 namespace noether_ros
 {
@@ -18,16 +19,16 @@ using LocatedVector = std::pair<geometry_msgs::msg::PointStamped, geometry_msgs:
 class LocatedVectorClient
 {
 public:
-  LocatedVectorClient()
+  LocatedVectorClient(const std::string& service_name)
   {
     // Initialize RCLPP if not already
     if (!rclcpp::ok())
       rclcpp::init(0, nullptr);
 
-    node_ = std::make_shared<rclcpp::Node>("located_vector_node");
+    node_ = std::make_shared<rclcpp::Node>("located_vector_client_node");
 
     // Create the client
-    client_ = node_->create_client<srv::GetLocatedVector>("get_located_vector");
+    client_ = node_->create_client<srv::GetLocatedVector>(service_name);
 
     // Create the transform listener
     buffer_ = std::make_shared<tf2_ros::Buffer>(
@@ -50,7 +51,11 @@ public:
     rclcpp::spin_some(node_);
     using namespace std::chrono_literals;
     if (!client_->wait_for_service(1s))
-      throw std::runtime_error("Get located vector service is not available");
+    {
+      std::stringstream ss;
+      ss << "Service '" << client_->get_service_name() << "' is not available";
+      throw std::runtime_error(ss.str());
+    }
 
     // Call the ROI selection service
     auto request = std::make_shared<srv::GetLocatedVector::Request>();
@@ -80,9 +85,14 @@ protected:
   std::shared_ptr<tf2_ros::TransformListener> listener_;
 };
 
+LocatedVectorDirectionGenerator::LocatedVectorDirectionGenerator(const std::string& service_name)
+  : service_name_(service_name)
+{
+}
+
 Eigen::Vector3d LocatedVectorDirectionGenerator::generate(const pcl::PolygonMesh& mesh) const
 {
-  LocatedVectorClient client;
+  LocatedVectorClient client(service_name_);
   const LocatedVector lv = client.getLocatedVector();
 
   // Transform the source point into the mesh frame
@@ -104,9 +114,14 @@ Eigen::Vector3d LocatedVectorDirectionGenerator::generate(const pcl::PolygonMesh
   return (target - source).normalized();
 }
 
+LocatedVectorOriginGenerator::LocatedVectorOriginGenerator(const std::string& service_name)
+  : service_name_(service_name)
+{
+}
+
 Eigen::Vector3d LocatedVectorOriginGenerator::generate(const pcl::PolygonMesh& mesh) const
 {
-  LocatedVectorClient client;
+  LocatedVectorClient client(service_name_);
   LocatedVector lv = client.getLocatedVector();
 
   // Convert to Eigen
@@ -128,23 +143,35 @@ namespace YAML
 Node convert<noether_ros::LocatedVectorDirectionGenerator>::encode(
     const noether_ros::LocatedVectorDirectionGenerator& val)
 {
-  return {};
+  Node node;
+  node[SERVICE_NAME_KEY] = val.service_name_;
+  return node;
 }
 
 bool convert<noether_ros::LocatedVectorDirectionGenerator>::decode(const Node& node,
                                                                    noether_ros::LocatedVectorDirectionGenerator& val)
 {
+  if (node[SERVICE_NAME_KEY])
+    val.service_name_ = getMember<std::string>(node, SERVICE_NAME_KEY);
+  else
+    val.service_name_ = DEFAULT_SERVICE_NAME;
   return true;
 }
 
 Node convert<noether_ros::LocatedVectorOriginGenerator>::encode(const noether_ros::LocatedVectorOriginGenerator& val)
 {
-  return {};
+  Node node;
+  node[SERVICE_NAME_KEY] = val.service_name_;
+  return node;
 }
 
 bool convert<noether_ros::LocatedVectorOriginGenerator>::decode(const Node& node,
                                                                 noether_ros::LocatedVectorOriginGenerator& val)
 {
+  if (node[SERVICE_NAME_KEY])
+    val.service_name_ = getMember<std::string>(node, SERVICE_NAME_KEY);
+  else
+    val.service_name_ = DEFAULT_SERVICE_NAME;
   return true;
 }
 /** @endcond */

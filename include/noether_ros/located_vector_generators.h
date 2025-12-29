@@ -10,17 +10,29 @@ namespace noether_ros
 class LocatedVectorDirectionGenerator : public noether::DirectionGenerator
 {
 public:
-  LocatedVectorDirectionGenerator() = default;
+  LocatedVectorDirectionGenerator(const std::string& service_name);
 
   Eigen::Vector3d generate(const pcl::PolygonMesh& mesh) const override;
+
+protected:
+  LocatedVectorDirectionGenerator() = default;
+  DECLARE_YAML_FRIEND_CLASSES(LocatedVectorDirectionGenerator)
+
+  std::string service_name_;
 };
 
 class LocatedVectorOriginGenerator : public noether::OriginGenerator
 {
 public:
-  LocatedVectorOriginGenerator() = default;
+  LocatedVectorOriginGenerator(const std::string& service_name);
 
   Eigen::Vector3d generate(const pcl::PolygonMesh& mesh) const override;
+
+protected:
+  LocatedVectorOriginGenerator() = default;
+  DECLARE_YAML_FRIEND_CLASSES(LocatedVectorOriginGenerator)
+
+  std::string service_name_;
 };
 
 }  // namespace noether_ros

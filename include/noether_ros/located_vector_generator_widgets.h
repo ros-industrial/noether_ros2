@@ -2,22 +2,32 @@
 
 #include <noether_gui/widgets.h>
 
+class QLineEdit;
+
 namespace noether_ros
 {
-struct LocatedVectorDirectionGeneratorWidget : public noether::BaseWidget
+class LocatedVectorDirectionGeneratorWidget : public noether::BaseWidget
 {
-  using noether::BaseWidget::BaseWidget;
-  using noether::BaseWidget::configure;
+public:
+  LocatedVectorDirectionGeneratorWidget(QWidget* parent = nullptr);
 
+  void configure(const YAML::Node&) override;
   void save(YAML::Node&) const override;
+
+protected:
+  QLineEdit* line_edit_service_name_;
 };
 
 struct LocatedVectorOriginGeneratorWidget : public noether::BaseWidget
 {
-  using noether::BaseWidget::BaseWidget;
-  using noether::BaseWidget::configure;
+public:
+  LocatedVectorOriginGeneratorWidget(QWidget* parent = nullptr);
 
+  void configure(const YAML::Node&) override;
   void save(YAML::Node&) const override;
+
+protected:
+  QLineEdit* line_edit_service_name_;
 };
 
 }  // namespace noether_ros
