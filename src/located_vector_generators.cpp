@@ -1,65 +1,84 @@
 #include <noether_ros/located_vector_generators.h>
+#include <noether_ros/srv/get_located_vector.hpp>
 
 #include <chrono>
 #include <noether_tpp/serialization.h>
+#include <rclcpp/node.hpp>
+#include <rclcpp/service.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
+#include <tf2_ros/buffer.hpp>
+#include <tf2_ros/transform_listener.hpp>
 
 using namespace std::chrono_literals;
 
 namespace noether_ros
 {
-LocatedVectorClient::LocatedVectorClient()
+using LocatedVector = std::pair<geometry_msgs::msg::PointStamped, geometry_msgs::msg::PointStamped>;
+
+class LocatedVectorClient
 {
-  // Initialize RCLPP if not already
-  if (!rclcpp::ok())
-    rclcpp::init(0, nullptr);
-
-  node_ = std::make_shared<rclcpp::Node>("located_vector_node");
-
-  // Create the client
-  client_ = node_->create_client<srv::GetLocatedVector>("get_located_vector");
-
-  // Create the transform listener
-  buffer_ =
-      std::make_shared<tf2_ros::Buffer>(node_->get_clock(), tf2::Duration(tf2::BUFFER_CORE_DEFAULT_CACHE_TIME), node_);
-  listener_ = std::make_shared<tf2_ros::TransformListener>(*buffer_, node_);
-}
-
-Eigen::Isometry3d LocatedVectorClient::lookupTransform(const std::string& source, const std::string& target) const
-{
-  rclcpp::spin_some(node_);
-  return tf2::transformToEigen(
-      buffer_->lookupTransform(source, target, rclcpp::Time(0), rclcpp::Duration::from_seconds(1.0)));
-}
-
-LocatedVector LocatedVectorClient::getLocatedVector() const
-{
-  // Check if the service is ready
-  rclcpp::spin_some(node_);
-  using namespace std::chrono_literals;
-  if (!client_->wait_for_service(1s))
-    throw std::runtime_error("Get located vector service is not available");
-
-  // Call the ROI selection service
-  auto request = std::make_shared<srv::GetLocatedVector::Request>();
-  auto future = client_->async_send_request(request);
-
-  switch (rclcpp::spin_until_future_complete(node_, future, std::chrono::seconds(3)))
+public:
+  LocatedVectorClient()
   {
-    case rclcpp::FutureReturnCode::SUCCESS:
-      break;
-    case rclcpp::FutureReturnCode::TIMEOUT:
-      throw std::runtime_error("Service call to '" + std::string(client_->get_service_name()) + "' timed out");
-    default:
-      throw std::runtime_error("Service call to '" + std::string(client_->get_service_name()) + "' failed");
+    // Initialize RCLPP if not already
+    if (!rclcpp::ok())
+      rclcpp::init(0, nullptr);
+
+    node_ = std::make_shared<rclcpp::Node>("located_vector_node");
+
+    // Create the client
+    client_ = node_->create_client<srv::GetLocatedVector>("get_located_vector");
+
+    // Create the transform listener
+    buffer_ = std::make_shared<tf2_ros::Buffer>(
+        node_->get_clock(), tf2::Duration(tf2::BUFFER_CORE_DEFAULT_CACHE_TIME), node_);
+    listener_ = std::make_shared<tf2_ros::TransformListener>(*buffer_, node_);
   }
 
-  srv::GetLocatedVector::Response::ConstSharedPtr response = future.get();
-  if (response->success)
-    return std::make_pair(response->source, response->target);
+  virtual ~LocatedVectorClient() = default;
 
-  throw std::runtime_error(response->message);
-}
+  Eigen::Isometry3d lookupTransform(const std::string& source, const std::string& target) const
+  {
+    rclcpp::spin_some(node_);
+    return tf2::transformToEigen(
+        buffer_->lookupTransform(source, target, rclcpp::Time(0), rclcpp::Duration::from_seconds(1.0)));
+  }
+
+  LocatedVector getLocatedVector() const
+  {
+    // Check if the service is ready
+    rclcpp::spin_some(node_);
+    using namespace std::chrono_literals;
+    if (!client_->wait_for_service(1s))
+      throw std::runtime_error("Get located vector service is not available");
+
+    // Call the ROI selection service
+    auto request = std::make_shared<srv::GetLocatedVector::Request>();
+    auto future = client_->async_send_request(request);
+
+    switch (rclcpp::spin_until_future_complete(node_, future, std::chrono::seconds(3)))
+    {
+      case rclcpp::FutureReturnCode::SUCCESS:
+        break;
+      case rclcpp::FutureReturnCode::TIMEOUT:
+        throw std::runtime_error("Service call to '" + std::string(client_->get_service_name()) + "' timed out");
+      default:
+        throw std::runtime_error("Service call to '" + std::string(client_->get_service_name()) + "' failed");
+    }
+
+    srv::GetLocatedVector::Response::ConstSharedPtr response = future.get();
+    if (response->success)
+      return std::make_pair(response->source, response->target);
+
+    throw std::runtime_error(response->message);
+  }
+
+protected:
+  rclcpp::Node::SharedPtr node_;
+  rclcpp::Client<srv::GetLocatedVector>::SharedPtr client_;
+  tf2_ros::Buffer::SharedPtr buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> listener_;
+};
 
 Eigen::Vector3d LocatedVectorDirectionGenerator::generate(const pcl::PolygonMesh& mesh) const
 {
