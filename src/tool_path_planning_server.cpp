@@ -1,6 +1,7 @@
 #include <noether_ros/conversions.h>
 #include <noether_ros/srv/plan_tool_path.hpp>
 
+#include <filesystem>
 #include <noether_tpp/core/tool_path_planner_pipeline.h>
 #include <noether_tpp/utils.h>
 #include <noether_tpp/plugin_interface.h>
@@ -25,24 +26,37 @@ protected:
     try
     {
       // Convert input configuration string/file to YAML node
-      YAML::Node config;
-      try
+      // Load the configuration directly as a YAML-formatted string
+      YAML::Node config = YAML::Load(request->config);
+
+      // If the config is a scalar (and not a map), it's likely that the config is actually a file path and not a
+      // YAML-formatted string
+      if (config.IsScalar())
       {
-        config = YAML::LoadFile(request->config);
+        // Check if the configuration is an existing file
+        if (std::filesystem::is_regular_file(request->config) || std::filesystem::is_symlink(request->config))
+        {
+          // Reload the configuration from file
+          config = YAML::LoadFile(request->config);
+        }
+        else
+        {
+          throw std::runtime_error("The request TPP configuration looks like a file path but does not exist: '" +
+                                   request->config + "'");
+        }
       }
-      catch (const YAML::Exception&)
-      {
-        config = YAML::Load(request->config);
-      }
+
+      // Check that the loaded request configuration is a map type
+      if (!config.IsMap())
+        throw std::runtime_error("The request TPP configuration must be a map type: '" + request->config + "'");
 
       // Load the mesh file
       pcl::PolygonMesh mesh;
+      if (pcl::io::loadPolygonFile(request->mesh_file, mesh) <= 0)
+        throw std::runtime_error("Failed to load mesh from file: " + request->mesh_file);
 
       // Set the mesh frame from the request
       mesh.header.frame_id = request->mesh_frame;
-
-      if (pcl::io::loadPolygonFile(request->mesh_file, mesh) <= 0)
-        throw std::runtime_error("Failed to load mesh from file: " + request->mesh_file);
 
       // Create and run the tool path planning pipeline
       noether::Factory factory;
