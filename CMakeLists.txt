@@ -36,38 +36,41 @@ rosidl_get_typesupport_target(interfaces_target "${PROJECT_NAME}" "rosidl_typesu
 
 # Library
 add_library(
-  ${PROJECT_NAME}_conversions SHARED src/conversions.cpp src/located_vector_generators.cpp
-                                     src/located_vector_generator_widgets.cpp
+  ${PROJECT_NAME}_lib SHARED src/conversions.cpp src/located_vector_generators.cpp
+                             src/located_vector_generator_widgets.cpp
 )
 target_include_directories(
-  ${PROJECT_NAME}_conversions PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-                                     "$<INSTALL_INTERFACE:include>"
+  ${PROJECT_NAME}_lib PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
 )
 target_link_libraries(
-  ${PROJECT_NAME}_conversions
-  noether::noether_gui
-  noether::noether_tpp
-  ${interfaces_target}
+  ${PROJECT_NAME}_lib
+  PUBLIC noether::noether_gui
+         noether::noether_tpp
+         tf2_eigen::tf2_eigen
+         rclcpp::rclcpp
+         ${interfaces_target}
 )
-ament_target_dependencies(${PROJECT_NAME}_conversions tf2_eigen rclcpp)
 
 # Tool path planning server
 add_executable(${PROJECT_NAME}_tool_path_planning_server src/tool_path_planning_server.cpp)
-target_link_libraries(${PROJECT_NAME}_tool_path_planning_server ${PROJECT_NAME}_conversions yaml-cpp)
-ament_target_dependencies(${PROJECT_NAME}_tool_path_planning_server rclcpp)
+target_link_libraries(${PROJECT_NAME}_tool_path_planning_server PUBLIC ${PROJECT_NAME}_lib rclcpp::rclcpp yaml-cpp)
 
 # Located vector Rviz tool
 add_library(${PROJECT_NAME}_located_vector_tool SHARED src/located_vector_rviz_tool.h src/located_vector_rviz_tool.cpp)
-target_link_libraries(${PROJECT_NAME}_located_vector_tool ${interfaces_target})
-ament_target_dependencies(${PROJECT_NAME}_located_vector_tool rviz_common pluginlib)
+target_link_libraries(
+  ${PROJECT_NAME}_located_vector_tool
+  pluginlib::pluginlib
+  rviz_common::rviz_common
+  ${interfaces_target}
+)
 
 # Plugins
 add_library(${PROJECT_NAME}_plugins SHARED src/plugins.cpp)
-target_link_libraries(${PROJECT_NAME}_plugins ${PROJECT_NAME}_conversions noether::noether_tpp)
+target_link_libraries(${PROJECT_NAME}_plugins ${PROJECT_NAME}_lib noether::noether_tpp)
 
 # GUI Plugins
 add_library(${PROJECT_NAME}_gui_plugins SHARED src/gui_plugins.cpp)
-target_link_libraries(${PROJECT_NAME}_gui_plugins ${PROJECT_NAME}_conversions noether::noether_gui)
+target_link_libraries(${PROJECT_NAME}_gui_plugins ${PROJECT_NAME}_lib noether::noether_gui)
 
 if(${ENABLE_TESTING})
   enable_testing()
@@ -79,7 +82,7 @@ install(DIRECTORY include/ DESTINATION include/)
 
 # Install the library
 install(
-  TARGETS ${PROJECT_NAME}_conversions
+  TARGETS ${PROJECT_NAME}_lib
           ${PROJECT_NAME}_located_vector_tool
           ${PROJECT_NAME}_plugins
           ${PROJECT_NAME}_gui_plugins
