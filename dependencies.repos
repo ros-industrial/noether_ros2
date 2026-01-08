@@ -9,4 +9,4 @@
 - git:
     local-name: noether
     uri: https://github.com/ros-industrial/noether.git
-    version: 0.15.4
+    version: 0.16.0
