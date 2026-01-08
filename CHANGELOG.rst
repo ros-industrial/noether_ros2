@@ -2,8 +2,8 @@
 Changelog for package noether_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.0 (2026-01-08)
+------------------
 * Updated to Noether 0.16 `#8 <https://github.com/marip8/noether_ros2/issues/8>`_ from marip8/update/noether-0.16
 * Updated messaging around loading YAML configuration from service request `#7 <https://github.com/marip8/noether_ros2/issues/7>`_ from marip8/update/error-reporting
 * Added custom service and Rviz tool for defining raster tool path origin and direction `#6 <https://github.com/marip8/noether_ros2/issues/6>`_ from marip8/feature/located-vector-tool

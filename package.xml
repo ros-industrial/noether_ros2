@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>noether_ros</name>
-  <version>0.1.1</version>
+  <version>0.2.0</version>
   <description>ROS2 integration for Noether</description>
   <author email="michael.ripperger@swri.org">Michael Ripperger</author>
   <maintainer email="michael.ripperger@swri.org">Michael Ripperger</maintainer>
